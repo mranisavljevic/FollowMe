@@ -33,9 +33,9 @@ function _draw()
 	local clr=hero_should_swat() and 8 or 12
 	rectfill(0,0,127,127,clr)
 	draw_hero()
-	debug_hero()
+	--debug_hero()
 	draw_bf()
-	debug_bf()
+	--debug_bf()
 end
 
 function update_bf()
@@ -70,7 +70,6 @@ function move_bf()
 	if(bf.y>120) then bf.y=120 end
 	
 	--check if colliding with hero
-	
 	if(bf.y+8>hero.y) then
 		if(bf.f==-1 and bf.x<hero.x+11 and bf.x>hero.x+5) then
 			c=8
@@ -138,17 +137,6 @@ function move_hero()
 		hero.m=0
 	end
 	hero.x+=hero.m
-	
-	--test for collision
-	--if(bf.y+8>hero.y) then
-	 --if(bf.x<hero.x+16 and bf.x>hero.x+5) then
-			--hero.x-=hero.m
-			--hero.m=0
-		--elseif(bf.x+8>hero.x and bf.x+8<hero.x+11) then
-			--hero.x-=hero.m
-			--hero.m=0
-		--end		
-	--end
 end
 
 function hero_should_swat()
