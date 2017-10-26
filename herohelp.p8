@@ -38,7 +38,6 @@ function _init()
 	fright_l={l_s,l_e}
 	fright_r={r_s,r_e}
 	fright={fright_l,fright_r}
-	
 end
 
 function _update()
@@ -50,6 +49,7 @@ end
 function _draw()
 	cls()
 	rectfill(0,0,127,127,12)
+	draw_fright()
 	draw_bf()
 	--debug_bf()
 	draw_hero()
@@ -58,10 +58,10 @@ end
 
 function update_bf()
 	bf.tmr+=1
-	if(bf.tmr==30) then bf.tmr=0 end
+	if(bf.tmr==30)bf.tmr=0
 	if(bf.tmr%3==0) then
 		bf.sprt+=1
-		if(bf.sprt==5) then bf.sprt=1 end
+		if(bf.sprt==5)bf.sprt=1
 	end
 end
 
@@ -87,10 +87,10 @@ function move_bf()
 		bf.mv=true
 	end
 	--check if out of bounds
-	if(bf.x<0) then bf.x=0 end
-	if(bf.x>120) then bf.x=120 end
-	if(bf.y<0) then bf.y=0 end
-	if(bf.y>120) then bf.y=120 end
+	if(bf.x<0)bf.x=0
+	if(bf.x>120)bf.x=120
+	if(bf.y<0)bf.y=0
+	if(bf.y>120)bf.y=120
 	
 	--check if colliding with hero
 	if(bf.y+8>hero.y) then
@@ -209,6 +209,21 @@ function hero_should_stop()
 end
 
 function draw_hero()
+	local atk=hero_should_swat()
+	--[[
+	if(atk) then
+		local adj=flr(rnd(3))-1
+		hero.x+=adj
+	end
+	--]]
+	--[[
+	if(atk) then
+		local adj=flr(rnd(3))-1
+		local adjy=flr(rnd(3))-1
+		bf.x+=adj
+		bf.y+=adjy
+	end
+	--]]
 	local x,y
 	if(hero.f==0) then
 		x=hero.x
@@ -222,7 +237,6 @@ function draw_hero()
 				x+=8
 			end
 		end
-		local atk=hero_should_swat()
 		if(atk) then
 			spr(34,hero.x,hero.y+9)
 			local a=hero.atk_seq
@@ -264,13 +278,11 @@ function draw_hero()
 			else
 				spr(s+16,hero.x,hero.y+1,1,1,true)
 			end
-			--spr(atk_seq[hero.atk_seq],hero.x,hero.y+9,1,1,true)
 		else
 			spr(18,hero.x+8,hero.y+9,1,1,true)
 			spr(19,hero.x,hero.y+9,1,1,true)
 		end
 	end
-	draw_fright()
 end
 
 function draw_fright()
@@ -282,18 +294,16 @@ function draw_fright()
 	if(off==true)return
 	local i=2
 	if(hero.f==0)i=1
-	--if(i==1) then
-		local f=fright[i]
-		local s=f[1]
-		local e=f[2]
-		for x=1,#s do
-			local st=s[x]
-			local en=e[x]
-			local hx=hero.x
-			local hy=hero.y
-			line(st[1]+hx,st[2]+hy,en[1]+hx,en[2]+hy,10)
-		end
-	--end
+	local f=fright[i]
+	local s=f[1]
+	local e=f[2]
+	for x=1,#s do
+		local st=s[x]
+		local en=e[x]
+		local hx=hero.x
+		local hy=hero.y
+		line(st[1]+hx,st[2]+hy,en[1]+hx,en[2]+hy,10)
+	end
 end
 
 function debug_hero()
