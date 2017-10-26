@@ -12,23 +12,30 @@ function _init()
 	bf.sprt=1
 	bf.x=60
 	bf.y=60
-	bf.m=2
+	bf.m=2 --speed
+	bf.f=0 --direction: -1=l, 1=r
 	
 	hero.x=60
 	hero.y=127-24
 	hero.sprts={16,17,32,33,48,49}
+	hero.f=0 --face: 0=r, 1=l
+	hero.m=0 --movement
 end
 
 function _update()
 	update_bf()
+	update_hero()
 	move_bf()
 end
 
 function _draw()
 	cls()
-	rectfill(0,0,127,127,12)
+	local clr=hero_should_swat() and 8 or 12
+	rectfill(0,0,127,127,clr)
 	draw_hero()
+	debug_hero()
 	draw_bf()
+	debug_bf()
 end
 
 function update_bf()
@@ -41,11 +48,14 @@ function update_bf()
 end
 
 function move_bf()
+	local newdir=bf.f
 	if(btn(0)) then
 		bf.x-=bf.m
+		newdir=-1
 	end
 	if(btn(1)) then
 		bf.x+=bf.m
+		newdir=1
 	end
 	if(btn(2)) then
 		bf.y-=bf.m
@@ -53,10 +63,27 @@ function move_bf()
 	if(btn(3)) then
 		bf.y+=bf.m
 	end
+	--check if out of bounds
 	if(bf.x<0) then bf.x=0 end
 	if(bf.x>120) then bf.x=120 end
 	if(bf.y<0) then bf.y=0 end
 	if(bf.y>120) then bf.y=120 end
+	
+	--check if colliding with hero
+	
+	if(bf.y+8>hero.y) then
+		if(bf.f==-1 and bf.x<hero.x+11 and bf.x>hero.x+5) then
+			c=8
+			bf.x=hero.x+11
+		elseif(bf.f==1 and bf.x+8>hero.x+5 and bf.x+8<hero.x+11) then
+			c=8
+			bf.x=hero.x+5-8
+		elseif(bf.x+8>hero.x+5 and bf.x<hero.x+11 and bf.y+8>hero.y) then
+			bf.y=hero.y-8
+		end
+	end
+	bf.f=newdir
+	
 end
 
 function draw_bf()
@@ -68,19 +95,103 @@ function draw_bf()
 	spr(s,bf.x,bf.y)
 end
 
+function debug_bf()
+	print("bf.x: "..bf.x,8,8,13)
+	print("bf.y: "..bf.y,8,16,13)
+	print("bf.r: "..calc_bf_range(),8,40,13)
+	print("bf.f: "..bf.f,8,48,13)
+	print("distance: "..calc_distance(),8,56,13)
+end
+
+function update_hero()
+	local r=calc_bf_range()
+	if(r<-0.5) then
+		hero.f=1
+	elseif(r>0.5) then
+		hero.f=0
+	end
+	move_hero()
+end
+
+function calc_bf_range()
+	local b={bf.x+4,bf.y+4}
+	local h={hero.x+8,hero.y}
+	local val=(b[1]-h[1])/(h[2]-b[2])
+	return bf.y+4>hero.y and -val or val
+end
+
+function calc_distance()
+	local b={bf.x+4,bf.y+4}
+	local h={hero.x+8,hero.y}
+	local dist=sqrt(((h[1]-b[1])^2)+((h[2]-b[2])^2))
+	return bf.y+8>hero.y and -dist or dist
+end
+
+function move_hero()
+	if(hero_should_swat()) then return end
+	local r=calc_bf_range()
+	if(r<-0.5) then 
+		hero.m=-1
+	elseif(r>0.5) then
+		hero.m=1
+	else
+		hero.m=0
+	end
+	hero.x+=hero.m
+	
+	--test for collision
+	--if(bf.y+8>hero.y) then
+	 --if(bf.x<hero.x+16 and bf.x>hero.x+5) then
+			--hero.x-=hero.m
+			--hero.m=0
+		--elseif(bf.x+8>hero.x and bf.x+8<hero.x+11) then
+			--hero.x-=hero.m
+			--hero.m=0
+		--end		
+	--end
+end
+
+function hero_should_swat()
+	local d=calc_distance()
+	if(d>-20 and d<10) then
+		return true
+	else
+		return false
+	end
+end
+
 function draw_hero()
 	local x,y
-	x=hero.x
-	y=hero.y
-	for i=1,#hero.sprts do
-		spr(hero.sprts[i],x,y)
-		if(i%2==0) then
-			y+=8
-			x-=8
-		else
-			x+=8
+	if(hero.f==0) then
+		x=hero.x
+		y=hero.y
+		for i=1,#hero.sprts do
+			spr(hero.sprts[i],x,y)
+			if(i%2==0) then
+				y+=8
+				x-=8
+			else
+				x+=8
+			end
+		end
+	else
+		x=hero.x+8
+		y=hero.y
+		for i=1,#hero.sprts do
+			spr(hero.sprts[i],x,y,1,1,true)
+			if(i%2==0) then
+				y+=8
+				x+=8
+			else
+				x-=8
+			end
 		end
 	end
+end
+
+function debug_hero()
+	print("hero.x: "..hero.x,8,24,13)
+	print("hero.y: "..hero.y,8,32,13)
 end
 __gfx__
 00000000998008990980089000800800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
