@@ -8,6 +8,7 @@ hero={}
 bf={}
 
 atk_seq={}
+fright={}
 
 function _init()
 	bf.tmr=0
@@ -24,8 +25,20 @@ function _init()
 	hero.f=0 --face: 0=r, 1=l
 	hero.m=0 --movement
 	hero.atk_seq=1
+	hero.sc=false --scared
 	
 	atk_seq={35,36,35,37,38,37}
+	
+	local fright_l={}
+	local fright_r={}
+	local l_s={{12,0},{8,0},{4,0},{2,4},{2,8}}
+	local l_e={{14,-4},{8,-5},{2,-4},{-3,2},{-2,9}}
+	local r_s={{4,0},{8,0},{12,0},{14,4},{14,8}}
+	local r_e={{2,-4},{8,-5},{14,-4},{19,2},{18,9}}
+	fright_l={l_s,l_e}
+	fright_r={r_s,r_e}
+	fright={fright_l,fright_r}
+	
 end
 
 function _update()
@@ -37,10 +50,10 @@ end
 function _draw()
 	cls()
 	rectfill(0,0,127,127,12)
-	draw_hero()
-	--debug_hero()
 	draw_bf()
 	--debug_bf()
+	draw_hero()
+	--debug_hero()
 end
 
 function update_bf()
@@ -167,7 +180,7 @@ function calc_distance()
 end
 
 function move_hero()
-	if(hero_should_swat()) then return end
+	if(hero_should_swat() or hero_should_stop())return
 	local r=calc_bf_range()
 	if(r<-0.5) then 
 		hero.m=-1
@@ -186,6 +199,13 @@ function hero_should_swat()
 	else
 		return false
 	end
+end
+
+function hero_should_stop()
+	local d=calc_distance()
+	local v=false
+	if(d>-25 and d<5)v=true
+	return v
 end
 
 function draw_hero()
@@ -250,6 +270,30 @@ function draw_hero()
 			spr(19,hero.x,hero.y+9,1,1,true)
 		end
 	end
+	draw_fright()
+end
+
+function draw_fright()
+	local a=hero_should_swat()
+	if(a==false)return
+	local switch=bf.tmr%10==0
+	if(switch)hero.sc=(not hero.sc)
+	local off=hero.sc
+	if(off==true)return
+	local i=2
+	if(hero.f==0)i=1
+	--if(i==1) then
+		local f=fright[i]
+		local s=f[1]
+		local e=f[2]
+		for x=1,#s do
+			local st=s[x]
+			local en=e[x]
+			local hx=hero.x
+			local hy=hero.y
+			line(st[1]+hx,st[2]+hy,en[1]+hx,en[2]+hy,10)
+		end
+	--end
 end
 
 function debug_hero()
