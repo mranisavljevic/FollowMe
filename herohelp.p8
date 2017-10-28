@@ -4,6 +4,8 @@ __lua__
 --hero help
 --creeperspeak 2017
 
+tmr=0
+
 hero={}
 bf={}
 
@@ -16,8 +18,9 @@ ground_tiles={64,65,66,67,68}
 ground={}
 clouds={}
 
+monsters={}
+
 function _init()
-	bf.tmr=0
 	bf.sprt=1
 	bf.x=60
 	bf.y=60
@@ -48,6 +51,7 @@ function _init()
 	fright={fright_l,fright_r}
 	make_ground()
 	make_clouds()
+	add(monsters,make_monster("chomp"))
 end
 
 function make_ground()
@@ -89,12 +93,38 @@ function make_cloud()
 	return cloud
 end
 
+function make_monster(name)
+	if(name=="chomp") then
+		local chomp={}
+		chomp.n=name
+		local l=flr(rnd(2))==0
+		local x,y,f=128,127-28,-1
+		if(l) then
+			x=-16
+			f=1
+		end
+		chomp.x=x
+		chomp.y=y
+		chomp.f=f --face -1=l, 1=r
+		chomp.s=0.2 --speed
+		chomp.w=true --walking
+		chomp.anim_tmr=0
+		chomp.atk=false --attacking
+		chomp.atk_seq=1
+		chomp.wlk_seq=1
+		chomp.atk={}
+		chomp.wlk={}
+		return chomp
+	end
+end
+
 --healthtest=false
 
 function _update()
 	update_bf()
 	update_hero()
 	move_bf()
+	update_monsters()
 	--[[ --testing health decrementing
 	if(bf.x==0 and not healthtest) then
 		hero.h-=1
@@ -111,31 +141,12 @@ function _draw()
 	draw_clouds()
 	draw_health()
 	draw_fright()
-	draw_temp_monst()
+	draw_monsters()
+	--draw_temp_monst()
 	draw_bf()
 	--debug_bf()
 	draw_hero()
 	--debug_hero()
-end
-
-function draw_temp_monst()
-	local ss={128,129,144,145,160,161}
-	local arm=176
-	local x,y=112,127-28
-	local clr={7,8,9,10,14}
-	local c=flr(rnd(#clr))+1
-	pal(8,clr[c])
-	for i=1,#ss do
-		spr(ss[i],x,y)
-		if(i%2==0) then
-			x-=8
-			y+=8
-		else
-			x+=8
-		end
-	end	
-	spr(arm,113,127-18)
-	pal()
 end
 
 function draw_ground()
@@ -156,9 +167,9 @@ function draw_clouds()
 end
 
 function update_bf()
-	bf.tmr+=1
-	if(bf.tmr==30)bf.tmr=0
-	if(bf.tmr%3==0) then
+	tmr+=1
+	if(tmr==30)tmr=0
+	if(tmr%3==0) then
 		bf.sprt+=1
 		if(bf.sprt==5)bf.sprt=1
 	end
@@ -294,7 +305,7 @@ function move_hero()
 		return
 	end
 	local r=calc_bf_range()
-	local wk=bf.tmr%3==0
+	local wk=tmr%3==0
 	if(wk)hero.wlk_seq+=1
 	if(hero.wlk_seq>#walk)hero.wlk_seq=1
 	if(r<-0.5) then 
@@ -412,7 +423,7 @@ end
 function draw_fright()
 	local a=hero_should_swat()
 	if(a==false)return
-	local switch=bf.tmr%10==0
+	local switch=tmr%10==0
 	if(switch)hero.sc=(not hero.sc)
 	local off=hero.sc
 	if(off==true)return
@@ -440,6 +451,106 @@ function draw_health()
 		x+=(i%2==0 and 10 or 0)
 	end
 end
+
+function draw_monsters()
+	if(monsters) then
+ 	for i=1,#monsters do
+ 		local m=monsters[i]
+ 		if(m.n=="chomp") then
+ 			--this is the monster 'chomp'
+   	local ss={128,129,144,145,160,161}
+   	local x,y=m.x,m.y
+   	local clr={7,8,9,10,14}
+   	local c=flr(rnd(#clr))+1
+   	pal(8,clr[c])
+   	if(m.f==-1) then
+    	for i=1,#ss do
+    		spr(ss[i],x,y)
+    		if(i%2==0) then
+    			x-=8
+    			y+=8
+    		else
+    			x+=8
+    		end
+    	end	
+   	else
+   		x=m.x+8
+    	for i=1,#ss do
+    		spr(ss[i],x,y,1,1,true)
+    		if(i%2==0) then
+    			x+=8
+    			y+=8
+    		else
+    			x-=8
+    		end
+    	end	
+   	end
+    pal()
+   	draw_chomp_arm(m)
+ 		end
+ 	end
+	end
+end
+
+function update_monsters()
+	if(monsters) then
+		for i=1,#monsters do
+			if(monsters[i].w) then
+				monsters[i].x+=(monsters[i].f*monsters[i].s)
+				monsters[i].wlk_seq+=1
+				if(monsters[i].wlk_seq>#monsters[i].wlk)monsters[i].wlk_seq=1
+			end
+			if(monsters[i].a) then
+				monsters[i].atk_seq+=1
+				if(monsters[i].wlk_seq>#monsters[i].atk)monsters[i].atk_seq=1
+			end
+			monsters[i].anim_tmr+=1
+			if(monsters[i].anim_tmr>7)monsters[i].anim_tmr=0
+		end
+	end
+end
+
+function draw_chomp_arm(chomp)
+	local arm=176
+	local angle=0
+	local a=chomp.anim_tmr
+	if(a==0 or a==4)angle=0
+	if(a==1 or a==3)angle=360-22.5
+	if(a==2)angle=360-45
+	if(a==5 or a==7)angle=22.5
+	if(a==6)angle=45
+	angle=0
+	if(chomp.f==-1) then
+		--rotate_spr(arm,chomp.x+1,chomp.y+10,angle,1,1)
+		spr(arm,chomp.x+1,chomp.y+10)
+	else
+		arm=177
+		--rotate_spr(arm,chomp.x+7,chomp.y+10,angle,1,1)
+		spr(arm,chomp.x+7,chomp.y+10)
+	end
+end
+
+--[[
+function draw_temp_monst()
+	local ss={128,129,144,145,160,161}
+	local arm=176
+	local x,y=112,127-28
+	local clr={7,8,9,10,14}
+	local c=flr(rnd(#clr))+1
+	pal(8,clr[c])
+	for i=1,#ss do
+		spr(ss[i],x,y)
+		if(i%2==0) then
+			x-=8
+			y+=8
+		else
+			x+=8
+		end
+	end	
+	spr(arm,113,127-18)
+	pal()
+end
+--]]
 
 function debug_hero()
 	print("hero.x: "..hero.x,8,24,13)
@@ -535,14 +646,14 @@ b03333003000b33000030300b3300030b003330030003bb000000000000000000000000000000000
 00003000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0003d0003d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00dd0b0dd0b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000bb000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000053b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000053d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000d1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000b5d10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00013100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000bbbb0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000053bb35000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000053dd35000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000d11d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000b5d1001d5b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00013100001310000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000dd000000dd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00011000000110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
