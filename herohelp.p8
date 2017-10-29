@@ -5,6 +5,7 @@ __lua__
 --creeperspeak 2017
 
 tmr=0
+tmr_tot=0
 
 hero={}
 bf={}
@@ -19,6 +20,8 @@ ground={}
 clouds={}
 
 monsters={}
+next_spwn=8
+mnst_spwn=1
 
 function _init()
 	bf.sprt=1
@@ -27,19 +30,20 @@ function _init()
 	bf.m=2 --speed
 	bf.f=0 --direction: -1=l, 1=r
 	bf.mv=false
-	
+
 	hero.x=60
 	hero.y=127-28
 	hero.sprts={16,17,32,33}
-	hero.f=0 --face: 0=r, 1=l
+	hero.f=1 --face: 1=r, -1=l
 	hero.m=0 --movement
 	hero.atk_seq=1
 	hero.wlk_seq=1
 	hero.sc=false --scared
 	hero.h=10
-	
+ hero.hit_tmr=0
+
 	atk_seq={35,36,35,37,38,37}
-	
+
 	local fright_l={}
 	local fright_r={}
 	local l_s={{12,0},{8,0},{4,0},{2,4},{2,8}}
@@ -51,109 +55,81 @@ function _init()
 	fright={fright_l,fright_r}
 	make_ground()
 	make_clouds()
-	add(monsters,make_monster("chomp"))
 end
-
-function make_ground()
-	for g=0,120/8 do
-		local t=g*8
-		local tnum=flr(rnd(#ground_tiles))+1
-		local til=ground_tiles[tnum]
-		add(ground,til)
-	end
-end
-
-function make_clouds()
-	--cloud: array of {x,y,radius,clr}
-	local cloud_count=flr(rnd(10))+1
-	for i=0,cloud_count do
-		local cld=make_cloud()
-		add(clouds,cld)
-	end
-end
-
-function make_cloud()
-	local cloud={}
-	--local clrs={7,7,7,6,15,15}
-	local x=flr(rnd(128))
-	local y=flr(rnd(60))+20
-	local nodes=flr(rnd(4))+4
-	for i=0,nodes do
-		local node={}
-		local xval=x+(flr(rnd(21))-10)
-		local yval=y+(flr(rnd(5))-2)
-		--local clr=clrs[flr(rnd(#clrs))+1]
-		local rad=flr(rnd(9))+2
-		node.x=xval
-		node.y=yval
-		node.r=rad
-		node.clr=7--clr
-		add(cloud,node)
-	end
-	return cloud
-end
-
-function make_monster(name)
-	if(name=="chomp") then
-		local chomp={}
-		chomp.n=name
-		local l=flr(rnd(2))==0
-		local x,y,f=128,127-28,-1
-		if(l) then
-			x=-16
-			f=1
-		end
-		chomp.x=x
-		chomp.y=y
-		chomp.f=f --face -1=l, 1=r
-		chomp.s=0.2 --speed
-		chomp.w=true --walking
-		chomp.anim_tmr=0
-		chomp.atk=false --attacking
-		chomp.atk_seq=1
-		chomp.wlk_seq=1
-		chomp.atk={}
-		chomp.wlk={}
-		return chomp
-	end
-end
-
---healthtest=false
 
 function _update()
-	update_bf()
-	update_hero()
-	move_bf()
-	update_monsters()
-	--[[ --testing health decrementing
-	if(bf.x==0 and not healthtest) then
-		hero.h-=1
-		healthtest=true
-	end
-	if(bf.x>0)healthtest=false
-	--]]
+ update_tmr()
+ update_bf()
+ update_hero()
+ move_bf()
+ update_monsters()
+ check_spawn()
 end
 
 function _draw()
-	cls()
-	rectfill(0,0,127,127,12)
-	draw_ground()
-	draw_clouds()
-	draw_health()
-	draw_fright()
-	draw_monsters()
-	--draw_temp_monst()
-	draw_bf()
-	--debug_bf()
-	draw_hero()
-	--debug_hero()
+ cls()
+ rectfill(0,0,127,127,12)
+ draw_ground()
+ draw_clouds()
+ draw_health()
+ debug_mode(false)
+ draw_fright()
+ draw_monsters()
+ draw_bf()
+ draw_hero()
 end
 
-function draw_ground()
-	for i=1,#ground do
-		local x=(i-1)*8
-		spr(ground[i],x,120)
-	end
+function calc_bf_range()
+ local b={bf.x+4,bf.y+4}
+ local h={hero.x+8,hero.y}
+ local val=(b[1]-h[1])/(h[2]-b[2])
+ return bf.y+4>hero.y and -val or val
+end
+
+function calc_distance()
+ local b={bf.x+4,bf.y+4}
+ local h={hero.x+8,hero.y}
+ local dist=sqrt(((h[1]-b[1])^2)+((h[2]-b[2])^2))
+ return bf.y+8>hero.y and -dist or dist
+end
+
+function check_spawn()
+ if(tmr_tot==next_spwn)spawn_monsters()
+end
+
+function draw_bf()
+ local s=bf.sprt
+ if(s>3) then
+  local n=s-3
+  s=3-n
+ end
+ local ang
+ if(not bf.mv or bf.f==0) then
+  ang=0
+ else
+  ang=(bf.f>0 and 20 or -20)
+ end
+ rotate_spr(s,bf.x,bf.y,ang,1,1)
+end
+
+function draw_chomp_arm(chomp)
+ local arm=176
+ local angle=0
+ local a=chomp.anim_tmr
+ if(a==0 or a==4)angle=0
+ if(a==1 or a==3)angle=360-22.5
+ if(a==2)angle=360-45
+ if(a==5 or a==7)angle=22.5
+ if(a==6)angle=45
+ angle=0
+ if(chomp.f==-1) then
+  --rotate_spr(arm,chomp.x+1,chomp.y+10,angle,1,1)
+  spr(arm,chomp.x+1,chomp.y+10)
+ else
+  arm=177
+  --rotate_spr(arm,chomp.x+7,chomp.y+10,angle,1,1)
+  spr(arm,chomp.x+7,chomp.y+10)
+ end
 end
 
 function draw_clouds()
@@ -163,394 +139,492 @@ function draw_clouds()
  		local c=n[x]
  		circfill(c.x,c.y,c.r,c.clr)
  	end
- end	
-end
-
-function update_bf()
-	tmr+=1
-	if(tmr==30)tmr=0
-	if(tmr%3==0) then
-		bf.sprt+=1
-		if(bf.sprt==5)bf.sprt=1
-	end
-end
-
-function move_bf()
-	local newdir=bf.f
-	bf.mv=false
-	if(btn(2)) then
-		bf.y-=bf.m
-		newdir=0
-		bf.mv=true
-	end
-	if(btn(3)) then
-		bf.y+=bf.m
-		newdir=0
-		bf.mv=true
-	end
-	if(btn(0)) then
-		bf.x-=bf.m
-		newdir=-1
-		bf.mv=true
-	end
-	if(btn(1)) then
-		bf.x+=bf.m
-		newdir=1
-		bf.mv=true
-	end
-	--check if out of bounds
-	if(bf.x<0)bf.x=0
-	if(bf.x>120)bf.x=120
-	if(bf.y<0)bf.y=0
-	if(bf.y>115)bf.y=115
-	
-	--check if colliding with hero
-	if(bf.y+8>hero.y) then
-		if(bf.f==-1 and bf.x<hero.x+11 and bf.x>hero.x+5) then
-			c=8
-			bf.x=hero.x+11
-		elseif(bf.f==1 and bf.x+8>hero.x+5 and bf.x+8<hero.x+11) then
-			c=8
-			bf.x=hero.x+5-8
-		elseif(bf.x+8>hero.x+5 and bf.x<hero.x+11 and bf.y+8>hero.y) then
-			bf.y=hero.y-8
-		end
-	end
-	bf.f=newdir
-end
-
-function rotate_spr(s,x,y,a,w,h)
-	local sw=(w or 1)*8+1
-	local sh=(h or 1)*8+1
-	local sx=(s%8)*8
-	local sy=flr(s/8)*8-1
-	local x0=flr(0.5*sw)
-	local y0=flr(0.5*sh)
-	local a=a/360
-	local sa=sin(a)
-	local ca=cos(a)
-	for ix=0,sw-1 do
-		for iy=0,sh-1 do
-			local dx=ix-x0
-			local dy=iy-y0
-			local xx=flr(dx*ca-dy*sa+x0)
-			local yy=flr(dx*sa+dy*ca+y0)
-			if(xx>=0 and xx<sw and yy>-0 and yy<=sh) then
-				local c=sget(sx+xx,sy+yy)
-				if(c!=0) then
-					pset(x+ix,y+iy,c)
-				end
-			end
-		end
-	end
-end
-
-function draw_bf()
-	local s=bf.sprt
-	if(s>3) then
-		local n=s-3
-		s=3-n
-	end
-	local ang
-	if(not bf.mv or bf.f==0) then
-		ang=0
-	else
-		ang=(bf.f>0 and 20 or -20)
-	end
-	rotate_spr(s,bf.x,bf.y,ang,1,1)
-end
-
-function debug_bf()
-	print("bf.x: "..bf.x,8,8,13)
-	print("bf.y: "..bf.y,8,16,13)
-	print("bf.r: "..calc_bf_range(),8,40,13)
-	print("bf.f: "..bf.f,8,48,13)
-	print("distance: "..calc_distance(),8,56,13)
-end
-
-function update_hero()
-	local r=calc_bf_range()
-	if(r<-0.5) then
-		hero.f=1
-	elseif(r>0.5) then
-		hero.f=0
-	end
-	move_hero()
-	local atk=hero_should_swat()
-	if(atk) then
-		hero.atk_seq+=1
-		if(hero.atk_seq>#atk_seq) then
-			hero.atk_seq=1
-		end
-	end
-end
-
-function calc_bf_range()
-	local b={bf.x+4,bf.y+4}
-	local h={hero.x+8,hero.y}
-	local val=(b[1]-h[1])/(h[2]-b[2])
-	return bf.y+4>hero.y and -val or val
-end
-
-function calc_distance()
-	local b={bf.x+4,bf.y+4}
-	local h={hero.x+8,hero.y}
-	local dist=sqrt(((h[1]-b[1])^2)+((h[2]-b[2])^2))
-	return bf.y+8>hero.y and -dist or dist
-end
-
-function move_hero()
-	if(hero_should_swat() or hero_should_stop()) then
-		hero.wlk_seq=1
-		return
-	end
-	local r=calc_bf_range()
-	local wk=tmr%3==0
-	if(wk)hero.wlk_seq+=1
-	if(hero.wlk_seq>#walk)hero.wlk_seq=1
-	if(r<-0.5) then 
-		hero.m=-1
-	elseif(r>0.5) then
-		hero.m=1
-	else
-		hero.m=0
-		hero.wlk_seq=1
-	end
-	hero.x+=hero.m
-end
-
-function hero_should_swat()
-	local d=calc_distance()
-	if(d>-20 and d<10) then
-		return true
-	else
-		return false
-	end
-end
-
-function hero_should_stop()
-	local d=calc_distance()
-	local v=false
-	if(d>-25 and d<15)v=true
-	return v
-end
-
-function draw_hero()
-	local atk=hero_should_swat()
-	--[[
-	if(atk) then
-		local adj=flr(rnd(3))-1
-		hero.x+=adj
-	end
-	--]]
-	--[[
-	if(atk) then
-		local adj=flr(rnd(3))-1
-		local adjy=flr(rnd(3))-1
-		bf.x+=adj
-		bf.y+=adjy
-	end
-	--]]
-	local x,y
-	if(hero.f==0) then
-		x=hero.x
-		y=hero.y
-		for i=1,#hero.sprts do
-			spr(hero.sprts[i],x,y)
-			if(i%2==0) then
-				y+=8
-				x-=8
-			else
-				x+=8
-			end
-		end
-		local ft=walk[hero.wlk_seq]
-		spr(ft,x,y)
-		x+=8
-		spr(ft+1,x,y)
-		if(atk) then
-			spr(34,hero.x,hero.y+9)
-			local a=hero.atk_seq
-			local s=atk_seq[a]
-			spr(s,hero.x+8,hero.y+9)
-			if(a==1 or a==3) then
-				spr(s+16,hero.x+16,hero.y+9)
-			elseif(a==2) then
-				spr(s+16,hero.x+8,hero.y+17)
-			else
-				spr(s+16,hero.x+8,hero.y+1)
-			end
-		else
-			spr(18,hero.x,hero.y+9)
-			spr(19,hero.x+8,hero.y+9)
-		end
-	else
-		x=hero.x+8
-		y=hero.y
-		for i=1,#hero.sprts do
-			spr(hero.sprts[i],x,y,1,1,true)
-			if(i%2==0) then
-				y+=8
-				x+=8
-			else
-				x-=8
-			end
-		end
-		local ft=walk[hero.wlk_seq]
-		spr(ft,x,y,1,1,true)
-		x-=8
-		spr(ft+1,x,y,1,1,true)
-		local atk=hero_should_swat()
-		if(atk) then
-			spr(34,hero.x+8,hero.y+9,1,1,true)
-			local a=hero.atk_seq
-			local s=atk_seq[a]
-			spr(s,hero.x,hero.y+9,1,1,true)
-			if(a==1 or a==3) then
-				spr(s+16,hero.x-8,hero.y+9,1,1,true)
-			elseif(a==2) then
-				spr(s+16,hero.x,hero.y+17,1,1,true)
-			else
-				spr(s+16,hero.x,hero.y+1,1,1,true)
-			end
-		else
-			spr(18,hero.x+8,hero.y+9,1,1,true)
-			spr(19,hero.x,hero.y+9,1,1,true)
-		end
-	end
+ end
 end
 
 function draw_fright()
-	local a=hero_should_swat()
-	if(a==false)return
-	local switch=tmr%10==0
-	if(switch)hero.sc=(not hero.sc)
-	local off=hero.sc
-	if(off==true)return
-	local i=2
-	if(hero.f==0)i=1
-	local f=fright[i]
-	local s=f[1]
-	local e=f[2]
-	for x=1,#s do
-		local st=s[x]
-		local en=e[x]
-		local hx=hero.x
-		local hy=hero.y
-		line(st[1]+hx,st[2]+hy,en[1]+hx,en[2]+hy,10)
-	end
+ local a=hero_should_swat()
+ if(a==false)return
+ local switch=tmr%10==0
+ if(switch)hero.sc=(not hero.sc)
+ local off=hero.sc
+ if(off==true)return
+ local i=2
+ if(hero.f==-1)i=1
+ local f=fright[i]
+ local s=f[1]
+ local e=f[2]
+ for x=1,#s do
+  local st=s[x]
+  local en=e[x]
+  local hx=hero.x
+  local hy=hero.y
+  line(st[1]+hx,st[2]+hy,en[1]+hx,en[2]+hy,10)
+ end
+end
+
+function draw_ground()
+ for i=1,#ground do
+  local x=(i-1)*8
+  spr(ground[i],x,120)
+ end
 end
 
 function draw_health()
-	local x=2
-	local h=health[1]
-	for i=1,hero.h do
-		local s=i%2==0 and 2 or 1
-		h=health[s]
-		spr(h,x,2)
-		x+=(i%2==0 and 10 or 0)
-	end
+ local x=2
+ local h=health[1]
+ for i=1,hero.h do
+  local s=i%2==0 and 2 or 1
+  h=health[s]
+  spr(h,x,2)
+  x+=(i%2==0 and 10 or 0)
+ end
+end
+
+function draw_hero()
+ local atk=hero_should_swat()
+ local x,y
+ if(hero.f==-1) then
+  x=hero.x
+  y=hero.y
+  for i=1,#hero.sprts do
+   spr(hero.sprts[i],x,y)
+   if(i%2==0) then
+    y+=8
+    x-=8
+   else
+    x+=8
+   end
+  end
+  local ft=walk[hero.wlk_seq]
+  spr(ft,x,y)
+  x+=8
+  spr(ft+1,x,y)
+  if(atk) then
+   spr(34,hero.x,hero.y+9)
+   local a=hero.atk_seq
+   local s=atk_seq[a]
+   spr(s,hero.x+8,hero.y+9)
+   if(a==1 or a==3) then
+    spr(s+16,hero.x+16,hero.y+9)
+   elseif(a==2) then
+    spr(s+16,hero.x+8,hero.y+17)
+   else
+    spr(s+16,hero.x+8,hero.y+1)
+   end
+  else
+   spr(18,hero.x,hero.y+9)
+   spr(19,hero.x+8,hero.y+9)
+  end
+ else
+  x=hero.x+8
+  y=hero.y
+  for i=1,#hero.sprts do
+   spr(hero.sprts[i],x,y,1,1,true)
+   if(i%2==0) then
+    y+=8
+    x+=8
+   else
+    x-=8
+   end
+  end
+  local ft=walk[hero.wlk_seq]
+  spr(ft,x,y,1,1,true)
+  x-=8
+  spr(ft+1,x,y,1,1,true)
+  local atk=hero_should_swat()
+  if(atk) then
+   spr(34,hero.x+8,hero.y+9,1,1,true)
+   local a=hero.atk_seq
+   local s=atk_seq[a]
+   spr(s,hero.x,hero.y+9,1,1,true)
+   if(a==1 or a==3) then
+    spr(s+16,hero.x-8,hero.y+9,1,1,true)
+   elseif(a==2) then
+    spr(s+16,hero.x,hero.y+17,1,1,true)
+   else
+    spr(s+16,hero.x,hero.y+1,1,1,true)
+   end
+  else
+   spr(18,hero.x+8,hero.y+9,1,1,true)
+   spr(19,hero.x,hero.y+9,1,1,true)
+  end
+ end
 end
 
 function draw_monsters()
-	if(monsters) then
- 	for i=1,#monsters do
- 		local m=monsters[i]
- 		if(m.n=="chomp") then
- 			--this is the monster 'chomp'
-   	local ss={128,129,144,145,160,161}
-   	local x,y=m.x,m.y
-   	local clr={7,8,9,10,14}
-   	local c=flr(rnd(#clr))+1
-   	pal(8,clr[c])
-   	if(m.f==-1) then
-    	for i=1,#ss do
-    		spr(ss[i],x,y)
-    		if(i%2==0) then
-    			x-=8
-    			y+=8
-    		else
-    			x+=8
-    		end
-    	end	
-   	else
-   		x=m.x+8
-    	for i=1,#ss do
-    		spr(ss[i],x,y,1,1,true)
-    		if(i%2==0) then
-    			x+=8
-    			y+=8
-    		else
-    			x-=8
-    		end
-    	end	
-   	end
+ if(monsters) then
+  for i=1,#monsters do
+   local m=monsters[i]
+   if(m.n=="chomp") then
+    --this is the monster 'chomp'
+    local ss={128,129,144,145,160,161}
+    local x,y=m.x,m.y
+    local clr={7,8,9,10,14}
+    local c=flr(rnd(#clr))+1
+    pal(8,clr[c])
+    if(m.f==-1) then
+     for i=1,#ss do
+      spr(ss[i],x,y)
+      if(i%2==0) then
+       x-=8
+       y+=8
+      else
+       x+=8
+      end
+     end
+    else
+     x=m.x+8
+     for i=1,#ss do
+      spr(ss[i],x,y,1,1,true)
+      if(i%2==0) then
+       x+=8
+       y+=8
+      else
+       x-=8
+      end
+     end
+    end
     pal()
-   	draw_chomp_arm(m)
- 		end
- 	end
-	end
+    draw_chomp_arm(m)
+   end
+  end
+ end
+end
+
+function hero_did_hit(m)
+ local atk=hero_should_swat()
+ if(not atk)return false
+ local f,r
+ if(m.f==-1) then
+  f=hero.f==1
+  r=hero.x>m.x-8
+  return f and r
+ else
+  f=hero.f==-1
+  r=hero.x<m.x+24
+  return f and r
+ end
+end
+
+function hero_should_stop()
+ local d=calc_distance()
+ local v=false
+ if(d>-25 and d<15)v=true
+ return v
+end
+
+function hero_should_swat()
+ local d=calc_distance()
+ if(d>-20 and d<10) then
+  return true
+ else
+  return false
+ end
+end
+
+function hit_hero(m)
+ hero.h-=m.dmg
+ hero.hit_tmr=60
+ if(hero.h<=0)kill_hero()
+end
+
+function hit_monster(m) --returns 'still alive'
+ m.l-=20
+ if(m.l<=0) then
+  kill_monster(m)
+  return false
+ else
+  m.hit_tmr=30
+  return true
+ end
+end
+
+function kill_hero()
+
+end
+
+function kill_monster(m)
+ del(monsters,m)
+end
+
+function make_cloud()
+ local cloud={}
+ --local clrs={7,7,7,6,15,15}
+ local x=flr(rnd(128))
+ local y=flr(rnd(60))+20
+ local nodes=flr(rnd(4))+4
+ for i=0,nodes do
+  local node={}
+  local xval=x+(flr(rnd(21))-10)
+  local yval=y+(flr(rnd(5))-2)
+  --local clr=clrs[flr(rnd(#clrs))+1]
+  local rad=flr(rnd(9))+2
+  node.x=xval
+  node.y=yval
+  node.r=rad
+  node.clr=7--clr
+  add(cloud,node)
+ end
+ return cloud
+end
+
+function make_clouds()
+ --cloud: array of {x,y,radius,clr}
+ local cloud_count=flr(rnd(10))+1
+ for i=0,cloud_count do
+  local cld=make_cloud()
+  add(clouds,cld)
+ end
+end
+
+function make_ground()
+ for g=0,120/8 do
+  local t=g*8
+  local tnum=flr(rnd(#ground_tiles))+1
+  local til=ground_tiles[tnum]
+  add(ground,til)
+ end
+end
+
+function make_monster(name)
+ if(name=="chomp") then
+  local chomp={}
+  chomp.n=name
+  local l=flr(rnd(2))==0
+  local x,y,f=128,127-28,-1
+  if(l) then
+   x=-16
+   f=1
+  end
+  chomp.x=x
+  chomp.y=y
+  chomp.l=100 --life
+  chomp.dmg=2 --damage
+  chomp.f=f --face -1=l, 1=r
+  chomp.s=rnd(0.3)+0.1--0.2 --speed
+  chomp.w=true --walking
+  chomp.anim_tmr=0
+  chomp.atk=false --attacking
+  chomp.atk_seq=1
+  chomp.wlk_seq=1
+  chomp.atk={}
+  chomp.wlk={}
+  chomp.hit_tmr=0
+  return chomp
+ end
+end
+
+function monster_did_hit(m)
+ local atk=m.atk
+ if(not atk or m.hit_tmr>0 or hero.hit_tmr>0)return false
+ if(m.f==-1) then
+  return hero.x>m.x-8
+ else
+  return hero.x<m.x+24
+ end
+end
+
+function monster_should_atk(m)
+ if(m.f==-1) then
+  return m.x<hero.x+24
+ else
+  return m.x>hero.x-8
+ end
+end
+
+function move_bf()
+ local newdir=bf.f
+ bf.mv=false
+ if(btn(2)) then
+  bf.y-=bf.m
+  newdir=0
+  bf.mv=true
+ end
+ if(btn(3)) then
+  bf.y+=bf.m
+  newdir=0
+  bf.mv=true
+ end
+ if(btn(0)) then
+  bf.x-=bf.m
+  newdir=-1
+  bf.mv=true
+ end
+ if(btn(1)) then
+  bf.x+=bf.m
+  newdir=1
+  bf.mv=true
+ end
+ --check if out of bounds
+ if(bf.x<0)bf.x=0
+ if(bf.x>120)bf.x=120
+ if(bf.y<0)bf.y=0
+ if(bf.y>115)bf.y=115
+
+ --check if colliding with hero
+ if(bf.y+8>hero.y) then
+  if(bf.f==-1 and bf.x<hero.x+11 and bf.x>hero.x+5) then
+   c=8
+   bf.x=hero.x+11
+  elseif(bf.f==1 and bf.x+8>hero.x+5 and bf.x+8<hero.x+11) then
+   c=8
+   bf.x=hero.x+5-8
+  elseif(bf.x+8>hero.x+5 and bf.x<hero.x+11 and bf.y+8>hero.y) then
+   bf.y=hero.y-8
+  end
+ end
+ bf.f=newdir
+end
+
+function move_hero()
+ if(hero_should_swat() or hero_should_stop()) then
+  hero.wlk_seq=1
+  return
+ end
+ local r=calc_bf_range()
+ local wk=tmr%3==0
+ if(wk)hero.wlk_seq+=1
+ if(hero.wlk_seq>#walk)hero.wlk_seq=1
+ if(r<-0.5) then
+  hero.m=-1
+ elseif(r>0.5) then
+  hero.m=1
+ else
+  hero.m=0
+  hero.wlk_seq=1
+ end
+ hero.x+=hero.m
+end
+
+function move_monster(m)
+ if(m.hit_tmr>0) then
+  if(m.f==-1) then
+   m.x+=1
+  else
+   m.x-=1
+  end
+  m.hit_tmr-=1
+ else
+  local atk=monster_should_atk(m)
+  if(atk)return
+  m.x+=(m.f*m.s)
+  m.wlk_seq+=1
+  if(m.wlk_seq>#m.wlk)m.wlk_seq=1
+ end
+end
+
+function rnd_monster()
+ local m={"chomp"}
+ local i=flr(rnd(#m))+1
+ return m[i]
+end
+
+function rotate_spr(s,x,y,a,w,h)
+ local sw=(w or 1)*8+1
+ local sh=(h or 1)*8+1
+ local sx=(s%8)*8
+ local sy=flr(s/8)*8-1
+ local x0=flr(0.5*sw)
+ local y0=flr(0.5*sh)
+ local a=a/360
+ local sa=sin(a)
+ local ca=cos(a)
+ for ix=0,sw-1 do
+  for iy=0,sh-1 do
+   local dx=ix-x0
+   local dy=iy-y0
+   local xx=flr(dx*ca-dy*sa+x0)
+   local yy=flr(dx*sa+dy*ca+y0)
+   if(xx>=0 and xx<sw and yy>-0 and yy<=sh) then
+    local c=sget(sx+xx,sy+yy)
+    if(c!=0) then
+     pset(x+ix,y+iy,c)
+    end
+   end
+  end
+ end
+end
+
+function spawn_monsters()
+ for i=1,mnst_spwn do
+  local m=rnd_monster()
+  add(monsters,make_monster(m))
+ end
+ local adj=flr(rnd(6))-3
+ next_spwn+=8+adj
+end
+
+function update_bf()
+ if(tmr%3==0) then
+  bf.sprt+=1
+  if(bf.sprt==5)bf.sprt=1
+ end
+end
+
+function update_hero()
+ local r=calc_bf_range()
+ if(r<-0.5) then
+  hero.f=1
+ elseif(r>0.5) then
+  hero.f=-1
+ end
+ move_hero()
+ local atk=hero_should_swat()
+ if(atk) then
+  hero.atk_seq+=1
+  if(hero.atk_seq>#atk_seq) then
+   hero.atk_seq=1
+  end
+ end
+ hero.hit_tmr-=1
+ if(hero.hit_tmr<=0)hero.hit_tmr=0
 end
 
 function update_monsters()
-	if(monsters) then
-		for i=1,#monsters do
-			if(monsters[i].w) then
-				monsters[i].x+=(monsters[i].f*monsters[i].s)
-				monsters[i].wlk_seq+=1
-				if(monsters[i].wlk_seq>#monsters[i].wlk)monsters[i].wlk_seq=1
-			end
-			if(monsters[i].a) then
-				monsters[i].atk_seq+=1
-				if(monsters[i].wlk_seq>#monsters[i].atk)monsters[i].atk_seq=1
-			end
-			monsters[i].anim_tmr+=1
-			if(monsters[i].anim_tmr>7)monsters[i].anim_tmr=0
-		end
-	end
+ if(monsters) then
+  for i=1,#monsters do
+   if(hero_did_hit(monsters[i])) then
+    local still_alive=hit_monster(monsters[i])
+    if(not still_alive)return
+   end
+   if(monster_did_hit(monsters[i]))hit_hero(monsters[i])
+   move_monster(monsters[i])
+   if(monsters[i].a) then
+    monsters[i].atk_seq+=1
+    if(monsters[i].wlk_seq>#monsters[i].atk)monsters[i].atk_seq=1
+   end
+   monsters[i].anim_tmr+=1
+   if(monsters[i].anim_tmr>7)monsters[i].anim_tmr=0
+  end
+ end
 end
 
-function draw_chomp_arm(chomp)
-	local arm=176
-	local angle=0
-	local a=chomp.anim_tmr
-	if(a==0 or a==4)angle=0
-	if(a==1 or a==3)angle=360-22.5
-	if(a==2)angle=360-45
-	if(a==5 or a==7)angle=22.5
-	if(a==6)angle=45
-	angle=0
-	if(chomp.f==-1) then
-		--rotate_spr(arm,chomp.x+1,chomp.y+10,angle,1,1)
-		spr(arm,chomp.x+1,chomp.y+10)
-	else
-		arm=177
-		--rotate_spr(arm,chomp.x+7,chomp.y+10,angle,1,1)
-		spr(arm,chomp.x+7,chomp.y+10)
+function update_tmr()
+	tmr+=1
+	if(tmr==30) then
+		tmr=0
+		tmr_tot+=1
 	end
 end
 
 --[[
-function draw_temp_monst()
-	local ss={128,129,144,145,160,161}
-	local arm=176
-	local x,y=112,127-28
-	local clr={7,8,9,10,14}
-	local c=flr(rnd(#clr))+1
-	pal(8,clr[c])
-	for i=1,#ss do
-		spr(ss[i],x,y)
-		if(i%2==0) then
-			x-=8
-			y+=8
-		else
-			x+=8
-		end
-	end	
-	spr(arm,113,127-18)
-	pal()
-end
+debug
 --]]
+function debug_mode(on)
+ if(on) then
+  debug_bf()
+  debug_hero()
+ end
+end
+
+function debug_bf()
+ print("bf.x: "..bf.x,8,8,13)
+ print("bf.y: "..bf.y,8,16,13)
+ print("bf.r: "..calc_bf_range(),8,40,13)
+ print("bf.f: "..bf.f,8,48,13)
+ print("distance: "..calc_distance(),8,56,13)
+end
 
 function debug_hero()
 	print("hero.x: "..hero.x,8,24,13)
