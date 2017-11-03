@@ -89,28 +89,6 @@ function draw_bf()
  rotate_spr(s,bf.x,bf.y,ang,1,1)
 end
 
---[[
-function draw_chomp_arm(chomp)
- local arm=chomp.wlk[chomp.wlk_seq]
- if(chomp.f==-1) then
-  spr(arm,chomp.x+1,chomp.y+10)
- else
-  arm+=1
-   spr(arm,chomp.x+7,chomp.y+10)
- end
-end
-
-function draw_crunch_arm(crunch)
- local arm=crunch.wlk[crunch.wlk_seq]
- if(crunch.f==-1) then
-  spr(arm,crunch.x+1,crunch.y+10)
- else
-  arm+=1
-   spr(arm,crunch.x+7,crunch.y+10)
- end
-end
---]]
-
 function draw_clouds()
  for i=1,#clouds do
  	local n=clouds[i]
