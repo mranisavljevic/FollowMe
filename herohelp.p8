@@ -6,7 +6,10 @@ __lua__
 
 game_state={}
 
-help_txt={"ooh! a butterfly!","aaah! shoo, butterfly!"}
+tutorial={{"oh, he's too dumb to know","what's going on!"},{"i think you're going to","have to help him out."},{"...","maybe he'll follow you around."},{"but he might actually","be afraid of you..."},{"see what happens if you","get in his face..."}}
+tutorial_step=0
+
+help_txt={"ooh! a butterfly!","aaah! it's in my face!"}
 help_idx=0
 help_tmr=0
 
@@ -211,11 +214,12 @@ function draw_help_text()
 	if(help_tmr>0) then
 		local t=help_txt[help_idx]
 		local chars=#t
-		local hlf_lth=(chars*4)/2
+		local lth=chars*4
+		local hlf_lth=lth/2
 		local x=hero.x+8-hlf_lth
 		local y=hero.y-12
 		if(x<=8)x=8
-		if(x+hlf_lth>120)x=120-hlf_lth
+		if(x+lth>120)x=120-lth
 		print(t,x,y,(help_idx==1 and 11 or 10))
 	end
 end
@@ -370,6 +374,16 @@ function draw_monsters()
   	end
   end
  end
+end
+
+function draw_tutorial()
+	local s=tutorial_step
+	if(s>0 and s<#tutorial+1) then
+		local t=tutorial[s]
+		for i=1,#t do
+			print_ctr(t[i],5,i,32,false)
+		end
+	end
 end
 
 function hero_did_hit(m)
@@ -632,6 +646,20 @@ function move_monster(m)
  end
 end
 
+function print_ctr(text,clr,idx,y,shadow)
+	local c=#text
+	local l=c*4
+	local h=l/2
+	local x=64-h
+	local ty=y+((idx-1)*10)
+	if(shadow) then
+		ty+=1
+		print(text,x,ty,5)
+		ty-=1
+	end
+	print(text,x,ty,clr)
+end
+
 function rnd_monster()
  local m={"chomp","crunch"}
  local i=flr(rnd(#m))+1
@@ -761,6 +789,8 @@ function update_tmr()
 	
 	if(tmr_tot>=30 and tmr_tot%30==0 and tmr==0)mnst_spwn+=1
 	if(mnst_spwn>#spawn_ramp)mnst_spwn=#spawn_ramp
+	if(tmr_tot>=3 and tmr_tot%3==0 and tmr==0)tutorial_step+=1
+	if(tutorial_step==#tutorial+1 and tmr==0)next_spwn=tmr_tot+8
 end
 
 ----------
@@ -830,7 +860,7 @@ function start_game()
 	tmr_tot=0
 	
 	monsters={}
-	next_spwn=8
+	next_spwn=-1
 	mnst_spwn=1
 	
 	bf.sprt=1
@@ -892,7 +922,7 @@ function update_game()
  update_tmr()
  update_bf()
  update_hero()
- move_bf()
+ if(tutorial_step>#tutorial)move_bf()
  update_dead_monsters()
  if(not go)update_monsters()
  if(not go)check_spawn()
@@ -946,6 +976,7 @@ function draw_game()
  if(not go)draw_monsters()
  draw_bf()
  if(not go)draw_hero()
+ draw_tutorial()
 end
 
 function draw_game_over()
@@ -955,12 +986,11 @@ function draw_game_over()
 		rectfill(0,0,128,128,hit_bg)
 		print("game over!",44,60,0)
 	else
-		print("oh, actually you're fine.",16,20,0)
-		print("it's that other guy who",16,30,0)
-		print("got himself killed.",16,40,0)
-		
-		print("— to restart",40,97,1)
-		print("— to restart",40,96,8)
+		local end_txt={"oh, actually you're fine.","it's that other guy who","got himself killed."}
+		for i=1,#end_txt do
+			print_ctr(end_txt[i],5,i,20,false)
+		end
+		print_ctr("— to restart",8,1,96,true)
 	end
 end
 __gfx__
